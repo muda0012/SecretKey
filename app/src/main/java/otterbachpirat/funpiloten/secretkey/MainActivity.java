@@ -1,16 +1,21 @@
 package otterbachpirat.funpiloten.secretkey;
 
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.content.Intent;
-import android.os.Build;
-import android.os.Bundle;
-import android.view.KeyEvent;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
-import android.widget.TextView;
+        import android.app.Activity;
+        import android.app.AlertDialog;
+        import android.app.ProgressDialog;
+        import android.content.BroadcastReceiver;
+        import android.content.Context;
+        import android.content.DialogInterface;
+        import android.content.Intent;
+        import android.content.IntentFilter;
+        import android.media.AudioManager;
+        import android.media.ToneGenerator;
+        import android.os.Bundle;
+        import android.view.KeyEvent;
+        import android.view.View;
+        import android.view.Window;
+        import android.view.WindowManager;
+        import android.widget.TextView;
 
 public class MainActivity extends Activity implements View.OnClickListener {
 
@@ -33,6 +38,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private long RandomNumber = 0;
     private boolean isStart = false;
     private int Counter = 0;
+    private int Runden = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +53,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         row1 = (TextView)findViewById(R.id.textView1);
         row2 = (TextView)findViewById(R.id.textView2);
         row3 = (TextView)findViewById(R.id.textView3);
-        row1.setText("Finde den SECRET-KEY");
+        row1.setText("Um das Sicherheitssystem zu deaktivieren musst du die Zahl erraten welche ich mir merke.");
         row2.setText("");
         row3.setText("Drücke START um das Spiel zu beginnen!");
 
@@ -77,12 +83,111 @@ public class MainActivity extends Activity implements View.OnClickListener {
         btStart.setOnClickListener(this);
         btEnter.setOnClickListener(this);
         showButtonText();
+        progressDialog = new ProgressDialog(this);
+
+        progressDialog.setTitle("Bootsequenz");
+        progressDialog.setMessage("Bitte Warten...");
+        progressDialog.setCanceledOnTouchOutside(false);
+        progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        progressDialog.setMax(100);
+        progressDialog.setProgress(value);
+        //progressDialog.getWindow().setBackgroundDrawableResource(R.drawable.buttonblue);
+        progressDialog.show();
+        BootSequenz();
+
 
     }
 
+    private ProgressDialog progressDialog;
+    private int value=0;
 
 
+    private void BootSequenz(){
+        Runnable runBootseq = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                sendBroadcast(new Intent("BOOTSEQUENZ_BCR"));
+            }
+        };
+        Thread thread = new Thread(runBootseq);
+        thread.start();
+    }
 
+
+    private BroadcastReceiver bcr_Bootsequenz = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if(value<100){
+                value++;
+                progressDialog.setProgress(value);
+                if(value>50){
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                if(value>75){
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                if(value>85){
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                if(value>90){
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                if(value>95){
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                BootSequenz();
+            }else {
+                progressDialog.setMessage("");
+                progressDialog.dismiss();
+                Spielablauf();
+            }
+        }
+    };
+
+    private void setBroadcastReceiver(boolean status){
+        if(status){
+            registerReceiver(bcr_Bootsequenz, new IntentFilter("BOOTSEQUENZ_BCR"));
+        }else{
+            unregisterReceiver(bcr_Bootsequenz);
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        setBroadcastReceiver(true);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        setBroadcastReceiver(false);
+    }
 
     @Override
     protected void onResume() {
@@ -140,13 +245,19 @@ public class MainActivity extends Activity implements View.OnClickListener {
         row3.setText(String.valueOf(eingabe));
         Ziffer++;
         setButtonNum(!(Ziffer>=3));
+        ToneGenerator toneg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
+        toneg.startTone(i, 100);
+
     }
 
 
     private void Game(){
+        ToneGenerator toneg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
+        toneg.startTone(12, 200);
+
         if(!isStart) {
             RandomNumber = System.currentTimeMillis() % 1000;
-            row1.setText("Suche den SECRET_KEY\nzwischen 0...999");
+            row1.setText("Suche eine Zahl\nzwischen 0...999");
             row2.setText("SPIELBEGINN\nDu hast 10 Versuche");
             row3.setText("");
             Counter = 10;
@@ -165,13 +276,42 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     }
 
+    private void Spielablauf(){
+        isStart=false;
+        showButtonText();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Sicherheitssystem der Independece");
+        builder.setMessage("Um das Sicherheitsystem zu deaktivieren musst du eine Zahl erraten." +
+                "\n\nDu hast 10 Versuche und erfährst ob die gesuchte Zahl größer oder kleiner ist." +
+                "\n\nHast du nach 10 Versuche die Zahl nicht erraten, dann beginnt eine neue Runde und du musst eine neue Zahl erraten.");
+        builder.setPositiveButton("OK",
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        dialogInterface.dismiss();
+                    }
+                }
+        );
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+
     private void Enter(){
+
+
         String s = row3.getText().toString();
         if(s==null || s=="")s="0";
         long in = Long.parseLong(s);
 
-        if(RandomNumber==in) Richtig();
+        if(RandomNumber==in) {
+            ToneGenerator toneg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
+            toneg.startTone(21, 200);
+            Richtig();
+        }
         else{
+            ToneGenerator toneg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
+            toneg.startTone(94, 200);
             if(RandomNumber<in) row2.setText("Die gesuchte Zahl ist kleiner als " + in);
             else if(RandomNumber>in) row2.setText("Die gesuchte Zahl ist größer als " + in);
             Counter--;
@@ -185,11 +325,31 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
     private void SpielEnde(){
+        Runden++;
         isStart=false;
         showButtonText();
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Leider Verloren!!!");
-        builder.setMessage("\"Die gesuchte Zahl war: " + RandomNumber);
+        builder.setMessage("Die gesuchte Zahl war: " + RandomNumber);
+        builder.setPositiveButton("OK",
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        if(Runden==5)Hinweis1();
+                        else if(Runden==9)Hinweis2();
+                        else if(Runden>11)Hinweis3();
+                        dialogInterface.dismiss();
+                    }
+                }
+        );
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private void Hinweis1(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("1. Hinweis");
+        builder.setMessage("Denke Binär!!!");
         builder.setPositiveButton("OK",
                 new DialogInterface.OnClickListener() {
                     @Override
@@ -201,6 +361,37 @@ public class MainActivity extends Activity implements View.OnClickListener {
         AlertDialog dialog = builder.create();
         dialog.show();
     }
+    private void Hinweis2(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("2. Hinweis");
+        builder.setMessage("Beginne bei 512!!!");
+        builder.setPositiveButton("OK",
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        dialogInterface.dismiss();
+                    }
+                }
+        );
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+    private void Hinweis3(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("3. Hinweis");
+        builder.setMessage("512\n+/-256\n+/-128\n+/-64\n+/-32\n+/-16\n+/-8\n+/-4\n+/-2\n+/-1");
+        builder.setPositiveButton("OK",
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        dialogInterface.dismiss();
+                    }
+                }
+        );
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
 
     @Override
     public void onBackPressed() {
@@ -221,25 +412,19 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
     private void Richtig(){
+        Runden=0;
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Richtig!!!");
-        builder.setMessage("\"Die gesuchte Zahl war: " + RandomNumber
-                + "\n\nGehe nun 120m in Richtung 20°\n\n\n\n" +
-                "Bitte schalte das Gerät aus und lege es wieder so wie du es vorgefunden hast zurück in den Behälter" +
+        builder.setTitle("Sicherheitsystem deaktiviert");
+        builder.setMessage("Die gesuchte Zahl war: " + RandomNumber +
+                "\n\nDie Energieversorgung der Independence ist soweit aufgeladen um die nukleare Sprengung durchzuführen." +
+                "\nFliege nun zur ISS und dann von dort 612 Erdenmeter in Richtung 282° zur Rettungsstation und warte auf der Meteriodenschauer." +
+                "\n\nVergiß nicht bei der Abreise von der Rettungsstation dich im Logbuch einzutragen und an der Tafel zu verewigen." +
+                "\n\n\nBitte schalte das Gerät aus und lege es wieder so wie du es vorgefunden hast zurück in den Behälter." +
                 "\nDanke und Gruß die FunPiloten");
-        builder.setPositiveButton("OK",
-                new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        dialogInterface.dismiss();
-
-                    }
-                }
-        );
         AlertDialog dialog = builder.create();
         dialog.show();
 
-        row2.setText("Gehe nun 120m in Richtung 20°");
+        row2.setText("Gehe von der ISS 612 Erdenmeter in Richtung 282°");
         row1.setText("Die gesuchte Zahl " + RandomNumber + " hast du mit " + (10-(Counter-1)) + " Versuche gefunden!!!");
         isStart=false;
         showButtonText();
@@ -258,7 +443,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
             setButtonNum(false);
         }
     }
-    
+
     private void setButtonNum(boolean status){
         bt0.setEnabled(status);
         bt1.setEnabled(status);
@@ -270,9 +455,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
         bt7.setEnabled(status);
         bt8.setEnabled(status);
         bt9.setEnabled(status);
-        
-    }
 
+    }
+//
 
 
 }
