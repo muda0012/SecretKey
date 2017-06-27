@@ -10,8 +10,11 @@ package otterbachpirat.funpiloten.secretkey;
         import android.content.IntentFilter;
         import android.graphics.Color;
         import android.media.AudioManager;
+        import android.media.MediaPlayer;
         import android.media.ToneGenerator;
+        import android.net.Uri;
         import android.os.Bundle;
+        import android.os.Environment;
         import android.util.Log;
         import android.view.KeyEvent;
         import android.view.View;
@@ -100,10 +103,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
         progressDialog.setMax(100);
         progressDialog.setProgress(value);
         //progressDialog.getWindow().setBackgroundDrawableResource(R.drawable.buttonblue);
-        progressDialog.show();
+        //progressDialog.show();
         isEndBoot=false;
         BootSequenz();
-
 
     }
 
@@ -157,7 +159,23 @@ public class MainActivity extends Activity implements View.OnClickListener {
         Thread t = new Thread(rTone);
         t.start();
 
+
     }
+
+
+    private int Alarm = 0;
+
+    private BroadcastReceiver bcr_AlarmBackground = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Alarm++;
+            if(Alarm>255)Alarm=0;
+            tvBoot.setBackgroundColor(Color.RED + Alarm);
+            TimerAlarm();
+
+        }
+    };
+
 
     private BroadcastReceiver bcr_BootBackground = new BroadcastReceiver() {
         @Override
@@ -172,6 +190,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 intEnd++;
                 if(intEnd>=200){
                     tvBoot.setVisibility(View.INVISIBLE);
+                    Log.e("#2#2", "xxxx");
                     Spielablauf();
                 }else BootSequenz();
 
@@ -238,9 +257,11 @@ public class MainActivity extends Activity implements View.OnClickListener {
         if(status){
             registerReceiver(bcr_BootBackground, new IntentFilter("BOOTBACKGROUND_BCR"));
             registerReceiver(bcr_Bootsequenz, new IntentFilter("BOOTSEQUENZ_BCR"));
+            registerReceiver(bcr_AlarmBackground, new IntentFilter("BCR_ALARM"));
         }else{
             unregisterReceiver(bcr_BootBackground);
             unregisterReceiver(bcr_Bootsequenz);
+            unregisterReceiver(bcr_AlarmBackground);
         }
     }
 
@@ -324,7 +345,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         if(!isStart) {
             RandomNumber = System.currentTimeMillis() % 1000;
             row1.setText("Suche eine Zahl\nzwischen 0...999");
-            row2.setText("SPIELBEGINN\nDu hast 10 Versuche");
+            row2.setText("SPIELBEGINN\nDu hast 10 Versuche" + RandomNumber);
             row3.setText("");
             Counter = 10;
             Ziffer = 0;
@@ -343,6 +364,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
     private void Spielablauf(){
+        tvBoot.setVisibility(View.INVISIBLE);
+
         isStart=false;
         showButtonText();
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -371,13 +394,10 @@ public class MainActivity extends Activity implements View.OnClickListener {
         long in = Long.parseLong(s);
 
         if(RandomNumber==in) {
-            ToneGenerator toneg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
-            toneg.startTone(45, 5000);
             Richtig();
         }
         else{
-            ToneGenerator toneg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
-            toneg.startTone(94, 200);
+            SetTon(94, 200);
             if(RandomNumber<in) row2.setText("Die gesuchte Zahl ist kleiner als " + in);
             else if(RandomNumber>in) row2.setText("Die gesuchte Zahl ist größer als " + in);
             Counter--;
@@ -479,6 +499,18 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     private void Richtig(){
         Runden=0;
+        Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                MediaPlayer mpintro = MediaPlayer.create(getApplicationContext(),
+                        Uri.parse(Environment.getExternalStorageDirectory().getPath()+ "/Music/danger.mp3"));
+                mpintro.setLooping(true);
+                mpintro.start();
+                mpintro.release();
+            }
+        };
+        Thread thread = new Thread(r);
+        thread.start();
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Sicherheitsystem deaktiviert");
         builder.setMessage("Die gesuchte Zahl war: " + RandomNumber +
@@ -494,8 +526,29 @@ public class MainActivity extends Activity implements View.OnClickListener {
         row1.setText("Die gesuchte Zahl " + RandomNumber + " hast du mit " + (10-(Counter-1)) + " Versuche gefunden!!!");
         isStart=false;
         showButtonText();
-
+        tvBoot.setText("");
+        tvBoot.setVisibility(View.VISIBLE);
+        TimerAlarm();
     }
+
+
+    private void TimerAlarm(){
+        Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(20);
+                    sendBroadcast(new Intent("BCR_ALARM"));
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+        Thread thread = new Thread(r);
+        thread.start();
+    }
+
+
 
     private void showButtonText(){
         if(isStart){
