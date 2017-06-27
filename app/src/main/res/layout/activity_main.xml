@@ -243,4 +243,13 @@
         </RelativeLayout>
 
     </LinearLayout>
+
+    <TextView
+        android:text="TextView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/tvBootsequenz"
+        android:textSize="16sp"
+        tools:textStyle="bold"/>
+
 </RelativeLayout>

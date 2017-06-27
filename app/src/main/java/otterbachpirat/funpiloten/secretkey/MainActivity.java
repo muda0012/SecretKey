@@ -8,9 +8,11 @@ package otterbachpirat.funpiloten.secretkey;
         import android.content.DialogInterface;
         import android.content.Intent;
         import android.content.IntentFilter;
+        import android.graphics.Color;
         import android.media.AudioManager;
         import android.media.ToneGenerator;
         import android.os.Bundle;
+        import android.util.Log;
         import android.view.KeyEvent;
         import android.view.View;
         import android.view.Window;
@@ -34,6 +36,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private TextView bt0;
     private TextView btStart;
     private TextView btEnter;
+    private TextView tvBoot;
 
     private long RandomNumber = 0;
     private boolean isStart = false;
@@ -84,6 +87,11 @@ public class MainActivity extends Activity implements View.OnClickListener {
         btEnter.setOnClickListener(this);
         showButtonText();
         progressDialog = new ProgressDialog(this);
+        tvBoot = (TextView)findViewById(R.id.tvBootsequenz);
+        tvBoot.setBackgroundColor(Color.BLACK);
+        tvBoot.setVisibility(View.VISIBLE);
+        tvBoot.setTextColor(Color.GREEN);
+        tvBoot.setText("");
 
         progressDialog.setTitle("Bootsequenz");
         progressDialog.setMessage("Bitte Warten...");
@@ -93,6 +101,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         progressDialog.setProgress(value);
         //progressDialog.getWindow().setBackgroundDrawableResource(R.drawable.buttonblue);
         progressDialog.show();
+        isEndBoot=false;
         BootSequenz();
 
 
@@ -102,16 +111,21 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private int value=0;
 
 
+
+
+
     private void BootSequenz(){
         Runnable runBootseq = new Runnable() {
             @Override
             public void run() {
                 try {
-                    Thread.sleep(100);
+                    if(isEndBoot)Thread.sleep(30);
+                    else Thread.sleep(100);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                sendBroadcast(new Intent("BOOTSEQUENZ_BCR"));
+                if(!isEndBoot)sendBroadcast(new Intent("BOOTSEQUENZ_BCR"));
+                sendBroadcast(new Intent("BOOTBACKGROUND_BCR"));
             }
         };
         Thread thread = new Thread(runBootseq);
@@ -119,7 +133,56 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
 
-    private BroadcastReceiver bcr_Bootsequenz = new BroadcastReceiver() {
+    int intEnd=0;
+
+    private void SetTon(int i, int d){
+        class Tone implements Runnable{
+            int i;
+            int d;
+            public Tone(){}
+
+            public void setParam(int a, int b){
+                i=a;
+                d=b;
+            }
+
+            public void run() {
+                ToneGenerator toneg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
+                toneg.startTone(i, d);
+                toneg.release();
+            }
+        };
+        Tone rTone = new Tone();
+        rTone.setParam(i, d);
+        Thread t = new Thread(rTone);
+        t.start();
+
+    }
+
+    private BroadcastReceiver bcr_BootBackground = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            int a = (int) (Math.random() * 1000);
+            tvBoot.setText(tvBoot.getText() + " " + a);
+            int i = (a%10);
+            SetTon(i, 20);
+            Log.e("Tone", "->" + i);
+            if(!isEndBoot)intEnd=0;
+            else{
+                intEnd++;
+                if(intEnd>=200){
+                    tvBoot.setVisibility(View.INVISIBLE);
+                    Spielablauf();
+                }else BootSequenz();
+
+            }
+
+
+        }
+    };
+
+
+  private BroadcastReceiver bcr_Bootsequenz = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if(value<100){
@@ -160,19 +223,23 @@ public class MainActivity extends Activity implements View.OnClickListener {
                         e.printStackTrace();
                     }
                 }
-                BootSequenz();
             }else {
                 progressDialog.setMessage("");
                 progressDialog.dismiss();
-                Spielablauf();
+                isEndBoot=true;
             }
+            BootSequenz();
         }
     };
 
+    private boolean isEndBoot = false;
+
     private void setBroadcastReceiver(boolean status){
         if(status){
+            registerReceiver(bcr_BootBackground, new IntentFilter("BOOTBACKGROUND_BCR"));
             registerReceiver(bcr_Bootsequenz, new IntentFilter("BOOTSEQUENZ_BCR"));
         }else{
+            unregisterReceiver(bcr_BootBackground);
             unregisterReceiver(bcr_Bootsequenz);
         }
     }
@@ -245,8 +312,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         row3.setText(String.valueOf(eingabe));
         Ziffer++;
         setButtonNum(!(Ziffer>=3));
-        ToneGenerator toneg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
-        toneg.startTone(i, 100);
+        SetTon(i, 100);
 
     }
 
@@ -306,7 +372,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
         if(RandomNumber==in) {
             ToneGenerator toneg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
-            toneg.startTone(21, 200);
+            toneg.startTone(45, 5000);
             Richtig();
         }
         else{
